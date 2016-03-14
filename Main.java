@@ -1,3 +1,5 @@
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.sql.*;
 import javafx.application.*;
 import javafx.concurrent.Task;
@@ -65,7 +67,6 @@ public class Main extends Application {
                 {
                     try {
                         dl.connect(urlInput.getText(), portInput.getText(), nameInput.getText(), passInput.getText());
-                        dl.init();
                     }
                     catch (SQLException ex){
                         System.out.println("no");
@@ -86,6 +87,7 @@ public class Main extends Application {
 
         makeMain();
         make1();
+        make2();
         make3();
         make4();
         make5();
@@ -157,9 +159,14 @@ public class Main extends Application {
             window.setScene(scene7);
         });
 
+        Button b8 = new Button("Show table");
+        b8.setOnAction(event->{
+            window.setScene(scene2);
+        });
+
         VBox layout = new VBox(20);
         Label error = new Label("");
-        layout.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7, buttonConnect, error);
+        layout.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7, b8, buttonConnect, error);
         sceneMain = new Scene(layout, 800, 600);
     }
 
@@ -182,10 +189,10 @@ public class Main extends Application {
                     @Override public Void call() throws InterruptedException {
                         updateMessage(msg);
                         try {
-                            msg = dl.createDB(n);
+                            updateMessage(dl.createDB(n));
 
                         } catch (Exception ex) {
-                            msg = "can't create";
+                            updateMessage("can't create");
 
                             ex.printStackTrace();
                         }
@@ -196,7 +203,6 @@ public class Main extends Application {
 
                 task.setOnSucceeded(e -> {
                     error.textProperty().unbind();
-                    error.setText(msg);
                 });
 
                 error.textProperty().bind(task.messageProperty());
@@ -204,8 +210,6 @@ public class Main extends Application {
                 // java 8 construct, replace with java 7 code if using java 7.
                 task.setOnSucceeded(e -> {
                     error.textProperty().unbind();
-                    // this message will be seen.
-                    error.setText(msg);
                 });
 
 
@@ -238,7 +242,7 @@ public class Main extends Application {
         make.setOnAction(event -> {
 
                 String n = nameInput.getText();
-                msg = "wait for DB to create";
+                msg = "wait for DB to clear";
                 Task <Void> task = new Task<Void>() {
                     @Override public Void call() throws InterruptedException {
                         updateMessage(msg);
@@ -294,6 +298,12 @@ public class Main extends Application {
 
         Button make = new Button("ok");
         make.setOnAction(event -> {
+            try{
+                dl.createTables();
+            }
+            catch (SQLException e){
+                MessageBox.display(e.getMessage());
+            }
             InsertBox.display(nameInput.getText(), dl, sceneMain);
             window.close();
         });
@@ -308,15 +318,153 @@ public class Main extends Application {
 
     }
 
+    private void make2(){
+
+        Label error = new Label("");
+        Label l2 = new Label("Table :");
+        GridPane.setConstraints(l2, 0, 0);
+        PrintStream std=System.out;
+
+        TextField i2 = new TextField("pilot");
+        GridPane.setConstraints(i2, 1, 0);
+
+        Button make = new Button("ok");
+        make.setOnAction(event -> {
+            try {
+
+                String s = dl.printTable(i2.getText());
+                TextBox.display(s, dl, sceneMain);
+            }
+            catch (SQLException e){
+
+                System.setOut(std);
+                System.out.println(e.getMessage());
+                MessageBox.display("error");
+                window.setScene(sceneMain);
+            }
+        });
+        Button goBack = new Button("Cancel");
+        goBack.setOnAction(event ->{
+            error.setText("");
+            window.setScene(sceneMain);
+        } );
+
+
+        VBox layout = new VBox(20);
+        layout.getChildren().addAll(l2, i2, make, goBack, error);
+        scene2 = new Scene(layout, 800, 600);
+
+    }
+
     private void make5(){
+
+        Label error = new Label("");
+        Label l2 = new Label("NAME:");
+        GridPane.setConstraints(l2, 0, 0);
+
+        TextField i2 = new TextField("Smith");
+        GridPane.setConstraints(i2, 1, 0);
+
+        Button make = new Button("ok");
+        make.setOnAction(event -> {
+            try {
+
+                String s = dl.search(i2.getText());
+                TextBox.display(s, dl, sceneMain);
+            }
+            catch (SQLException e){
+                MessageBox.display("error");
+                window.setScene(sceneMain);
+            }
+        });
+        Button goBack = new Button("Cancel");
+        goBack.setOnAction(event ->{
+            error.setText("");
+            window.setScene(sceneMain);
+        } );
+
+
+        VBox layout = new VBox(20);
+        layout.getChildren().addAll(l2, i2, make, goBack, error);
+        scene2 = new Scene(layout, 800, 600);
+
 
     }
 
     private void make6(){
 
+        Button make = new Button("ok");
+
+        Button goBack = new Button("Cancel");
+        goBack.setOnAction(event ->{
+            window.setScene(sceneMain);
+        });
+        Label l5 = new Label("RECORD:");
+        GridPane.setConstraints(l5, 0, 0);
+
+        TextField i5 = new TextField("1");
+        GridPane.setConstraints(i5, 1, 0);
+
+        Label l6 = new Label("FLIGHTS:");
+        GridPane.setConstraints(l6, 0, 0);
+
+        TextField i6 = new TextField("1");
+        GridPane.setConstraints(i6, 1, 0);
+
+        Label l7 = new Label("HOURS:");
+        GridPane.setConstraints(l7, 0, 0);
+
+        TextField i7 = new TextField();
+        GridPane.setConstraints(i7, 1, 0);
+
+        make.setOnAction(event -> {
+            try{
+                dl.updateRecord(Integer.valueOf(i5.getText()), Integer.valueOf(i6.getText()),
+                        Integer.valueOf(i7.getText()));
+                MessageBox.display("done");
+            }
+            catch (SQLException e){
+                MessageBox.display("error");
+                window.setScene(sceneMain);
+            }
+        });
+
+        VBox layout = new VBox(20);
+        layout.getChildren().addAll(l5, i5, l6, i6, l7, i7 , make, goBack);
+        scene6 = new Scene(layout, 800, 600);
+
     }
 
     private void make7(){
+        Label error = new Label("");
+        Label l2 = new Label("NAME:");
+        GridPane.setConstraints(l2, 0, 0);
+
+        TextField i2 = new TextField("Smith");
+        GridPane.setConstraints(i2, 1, 0);
+
+        Button make = new Button("ok");
+        make.setOnAction(event -> {
+            try {
+
+                dl.deletePilot(i2.getText());
+                MessageBox.display("done");
+            }
+            catch (SQLException e){
+                MessageBox.display("error");
+                window.setScene(sceneMain);
+            }
+        });
+        Button goBack = new Button("Cancel");
+        goBack.setOnAction(event ->{
+            error.setText("");
+            window.setScene(sceneMain);
+        } );
+
+
+        VBox layout = new VBox(20);
+        layout.getChildren().addAll(l2, i2, make, goBack, error);
+        scene7 = new Scene(layout, 800, 600);
 
     }
 
@@ -324,5 +472,5 @@ public class Main extends Application {
     static DatabaseLogic dl;
     String msg;
     Stage window;
-    Scene sceneConnect, sceneMain, scene1, scene3, scene4, scene5, scene6, scene7;
+    Scene sceneConnect, sceneMain, scene1, scene2, scene3, scene4, scene5, scene6, scene7;
 }

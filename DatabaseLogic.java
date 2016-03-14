@@ -1,3 +1,5 @@
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.sql.*;
 
 public class DatabaseLogic {
@@ -20,6 +22,8 @@ public class DatabaseLogic {
         this.username = user;
         this.password = pw;
         this.connection=DriverManager.getConnection(url+":"+port+"/",this.username, this.password);
+
+        this.connected=true;
     }
 
     public void disconnect() throws SQLException{
@@ -41,7 +45,7 @@ public class DatabaseLogic {
     }
     public String createDB() throws SQLException {
         Statement st=connection.createStatement();
-        String msg;
+        String msg="";
         try {
             st.executeUpdate("CREATE OR REPLACE FUNCTION f_create_db(name text)\n" +
                     "  RETURNS VOID AS\n" +
@@ -60,13 +64,26 @@ public class DatabaseLogic {
             CallableStatement callable = connection.prepareCall("{call f_create_db(?)}");
             callable.setString(1, name);
             callable.executeUpdate();
+            try {
+                connection.close();
+                connection = DriverManager.getConnection(url + ":" + port + "/" + name.toLowerCase(), this.username, this.password);
+                connected= true;
+            }
+            catch (Exception e){
+                System.out.print(url + ":" + port + "/" + name.toLowerCase()+ this.username+ this.password);
+                connection = DriverManager.getConnection(this.url+ ":" + port + "/"+name.toLowerCase() ,this.username, this.password);
+                connected= true;
+            }
 
             if (callable.getWarnings()==null){
                 msg="Database "+name+" has been created";
                 try {
+                    createStored();
                     createTables();
                 }
                 catch (SQLException e) {
+
+                    System.out.println(e.getMessage());
                     db = true;
                     return msg;
                 }
@@ -74,14 +91,25 @@ public class DatabaseLogic {
             }
             else {
                 db = true;
+                try {
+                    createStored();
+                    createTables();
+                }
+                catch (SQLException e) {
+                    msg=e.getMessage();
+                    db = true;
+                }
                 return "Database "+name+" already exists";
             }
 
         }
         catch (SQLException e){
+            if (!e.getMessage().contains(name.toLowerCase())) {
+                msg = e.getMessage();
+                return msg;
+            }
             db = true;
-            msg="Database "+name+" already exists";
-            return msg;
+            return "Database "+name+" already exists";
         }
     }
 
@@ -101,6 +129,8 @@ public class DatabaseLogic {
         Statement statement;
         statement = connection.createStatement();
         statement.executeUpdate("DROP DATABASE " + this.name);
+        disconnect();
+        connect();
         System.out.println("Database " + this.name + "has been deleted");
     }
 
@@ -114,7 +144,7 @@ public class DatabaseLogic {
         statement.executeUpdate("CREATE OR REPLACE FUNCTION create_tables() RETURNS VOID\n " +
                 "AS $$\n" +
                 "BEGIN\n" +
-                "IF NOT EXISTS (SELECT 1 FROM information_schema.tables  WHERE table_name = 'PILOT') THEN\n"+
+
                 "   create table PILOT (\n" +
                 "   id integer NOT NULL, \n" +
                 "   name varchar(30) NOT NULL, \n" +
@@ -124,8 +154,7 @@ public class DatabaseLogic {
                 "alter table PILOT\n" +
                 "add PRIMARY KEY (id);\n" +
                 "\n" +
-                "END IF;\n"+
-                "IF NOT EXISTS (SELECT 1 FROM information_schema.tables  WHERE table_name = 'NAVIGATOR') THEN\n"+
+
                 "create table NAVIGATOR (\n" +
                 "id integer, \n" +
                 "name varchar(30), \n" +
@@ -135,9 +164,7 @@ public class DatabaseLogic {
                 "alter table NAVIGATOR\n" +
                 "add PRIMARY KEY (id);\n" +
                 "\n" +
-                "END IF;\n"+
 
-                "IF NOT EXISTS (SELECT 1 FROM information_schema.tables  WHERE table_name = 'TRIP') THEN\n"+
                 "create table TRIP (\n" +
                 "id integer, \n" +
                 "destination varchar(30), \n" +
@@ -149,10 +176,8 @@ public class DatabaseLogic {
                 "alter table TRIP\n" +
                 "add PRIMARY KEY (id);\n" +
                 "\n" +
-                "END IF;\n"+
                 "\n" +
 
-                "IF NOT EXISTS (SELECT 1 FROM information_schema.tables  WHERE table_name = 'FLIGHT') THEN\n"+
                 "create table FLIGHT (\n" +
                 "record_number integer, \n" +
                 "date_of_flight date,\n" +
@@ -165,7 +190,6 @@ public class DatabaseLogic {
                 "alter table FLIGHT\n" +
                 "add PRIMARY KEY (record_number);" +
 
-                "END IF;\n"+
                 "END;\n" +
                 "$$ LANGUAGE plpgsql;");
 
@@ -378,6 +402,8 @@ public class DatabaseLogic {
     }
 
     public void  createTables() throws SQLException{
+        if (cr) return;
+        cr=true;
         CallableStatement st = connection.prepareCall("{call create_tables()}");
         st.executeUpdate();
     }
@@ -394,26 +420,33 @@ public class DatabaseLogic {
         }
     }
 
-    void printTable(String n) throws SQLException{
+    public String printTable(String n) throws SQLException{
+        PrintStream std = System.out;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos);
+        System.setOut(ps);
         CallableStatement st;
         ResultSet set;
+
         switch (n.toLowerCase()){
             case "pilot":
-                st = connection.prepareCall("{call get_table_pilot}");
+                st = connection.prepareCall("{call get_table_pilot()}");
                 set = st.executeQuery();
+
                 System.out.println("\nThis is our table for pilots:");
-                System.out.format("%5s%20s%20s%5s%n", "ID", "NAME", "CREW", "LIMIT");
+                System.out.format("%7s%20s%20s%10s%n", "ID", "NAME", "CREW", "LIMIT");
+
                 while (set.next()) {
-                    System.out.format("%5s%20s%20s%5s%n",
+                    System.out.format("%7s%20s%20s%10s%n",
                             set.getInt("id"), set.getString("name"),
                             set.getString("crew"), set.getInt("lim"));
                 }
                 break;
             case "navigator":
-                st = connection.prepareCall("{call get_table_navigator}");
+                st = connection.prepareCall("{call get_table_navigator()}");
                 set = st.executeQuery();
                 System.out.println("\nThis is our table for navigators:");
-                System.out.format("%5s%20s%20s%5s%n", "ID", "NAME", "CREW", "LIMIT");
+                System.out.format("%7s%20s%20s%10s%n", "ID", "NAME", "CREW", "LIMIT");
                 while (set.next()) {
                     System.out.format("%5s%20s%20s%5s%n",
                             set.getInt("id"), set.getString("name"),
@@ -421,7 +454,7 @@ public class DatabaseLogic {
                 }
                 break;
             case "trip":
-                st = connection.prepareCall("{call get_table_trip}");
+                st = connection.prepareCall("{call get_table_trip()}");
                 set = st.executeQuery();
                 System.out.println("\nThis is our table for trips:");
                 System.out.format("%5s%20s%20s%15s%10s%n", "ID", "DESTINATION", "CREW", "TIME_OF_FLIGHT", "COMPLEXITY");
@@ -432,7 +465,7 @@ public class DatabaseLogic {
                 }
                 break;
             case "flight":
-                st = connection.prepareCall("{call get_table_trip}");
+                st = connection.prepareCall("{call get_table_trip()}");
                 set = st.executeQuery();
                 System.out.println("\nThis is our table for trips:");
                 System.out.format("%6s%15s%7s%9s%7s%7s%7s%n", "RECORD", "DATE", "PILOT", "NAVIGATOR", "TRIP", "FLIGHTS", "HOURS");
@@ -448,15 +481,24 @@ public class DatabaseLogic {
                 System.out.println("There is no such table");
                 break;
         }
+
+        System.setOut(std);
+        return baos.toString();
     }
 
-    public void search(String n) throws SQLException {
+    public String search(String n) throws SQLException {
+
+        PrintStream std = System.out;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos);
+        System.setOut(ps);
         CallableStatement st = connection.prepareCall("{call search (?)}");
         st.setString(1, n);
         ResultSet set = st.executeQuery();
         if (!set.isBeforeFirst() ) {
             System.out.println("No data found");
-            return;
+            System.setOut(std);
+            return baos.toString();
         }
         System.out.println("\nThis is our table for trips:");
         System.out.format("%6s%15s%5s%5s%5s%7s%5s%12s%12s%10s%n", "RECORD", "DATE", "P_ID",  "N_ID",  "T_ID",  "FLIGHTS", "HOURS", "PILOT", "NAVIGATOR", "DESTINATION");
@@ -469,6 +511,9 @@ public class DatabaseLogic {
                     set.getInt("hours"), set.getString(8),
                     set.getString(9), set.getString(10));
         }
+
+        System.setOut(std);
+        return baos.toString();
     }
     public void updateRecord(int record, int flights, int hours) throws SQLException{
         CallableStatement st = connection.prepareCall("{call change_record(?,?,?)}");
@@ -486,7 +531,11 @@ public class DatabaseLogic {
             System.out.println("No such pilot");
         }
     }
+    public boolean isCreated(){
+        return cr;
+    }
 //fields
+    boolean cr=false;
     boolean db=false;
     boolean connected=false;
     protected Connection connection = null;
