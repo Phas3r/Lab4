@@ -1,7 +1,4 @@
-import org.postgresql.util.PSQLException;
-
 import java.sql.*;
-import java.util.Scanner;
 
 public class DatabaseLogic {
     public DatabaseLogic() {
@@ -32,14 +29,11 @@ public class DatabaseLogic {
 
 
     public void init() throws SQLException{
-        System.out.println("lmao");
         if (!connected){
             connect();
             connected = true;
         }
         createStored();
-
-        System.out.println("norm");
     }
 
     public boolean isConnected(){
@@ -68,7 +62,6 @@ public class DatabaseLogic {
             callable.executeUpdate();
 
             if (callable.getWarnings()==null){
-                System.out.println("Database "+name+" has been created");
                 msg="Database "+name+" has been created";
                 try {
                     createTables();
@@ -469,7 +462,7 @@ public class DatabaseLogic {
         System.out.format("%6s%15s%5s%5s%5s%7s%5s%12s%12s%10s%n", "RECORD", "DATE", "P_ID",  "N_ID",  "T_ID",  "FLIGHTS", "HOURS", "PILOT", "NAVIGATOR", "DESTINATION");
 
         while (set.next()) {
-            System.out.format("%6s%15s%7s%9s%7s%7s%7s%n",
+            System.out.format("%6s%15s%5s%5s%5s%7s%5s%12s%12s%10s%n",
                     set.getInt("record"), set.getDate("dat"),
                     set.getInt("p_id"),set.getInt("n_id"),
                     set.getInt("t_id"), set.getInt("flights"),

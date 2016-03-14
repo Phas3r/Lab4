@@ -1,6 +1,4 @@
 import java.sql.*;
-import java.util.Scanner;
-
 import javafx.application.*;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
@@ -27,7 +25,7 @@ public class Main extends Application {
 
         //Button 1
         Label label1 = new Label("Connect to database:");
-        error = new Label("");
+        Label error = new Label("");
         GridPane.setConstraints(error, 0, 0);
 
         Label urlLabel = new Label("Server url:");
@@ -118,7 +116,6 @@ public class Main extends Application {
         Button b1 = new Button("Create database");
         b1.setOnAction(event->{
 
-            System.out.println("hoh");
             window.setScene(scene1);
         });
 
@@ -161,11 +158,14 @@ public class Main extends Application {
         });
 
         VBox layout = new VBox(20);
+        Label error = new Label("");
         layout.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7, buttonConnect, error);
         sceneMain = new Scene(layout, 800, 600);
     }
 
     private void make1(){
+
+        Label error = new Label("");
         Label nameLabel = new Label("Databasse name:");
         GridPane.setConstraints(nameLabel, 0, 0);
 
@@ -174,12 +174,45 @@ public class Main extends Application {
         GridPane.setConstraints(nameInput, 1, 0);
 
         Button make = new Button("ok");
-        make.setOnAction(new EventHandler<ActionEvent>() {
+        make.setOnAction(event1 ->  {
 
-            @Override
-            public void handle(ActionEvent event) {
-                create(nameInput.getText());
-            }
+                String n = nameInput.getText();
+                msg = "wait for DB to create";
+                Task <Void> task = new Task<Void>() {
+                    @Override public Void call() throws InterruptedException {
+                        updateMessage(msg);
+                        try {
+                            msg = dl.createDB(n);
+
+                        } catch (Exception ex) {
+                            msg = "can't create";
+
+                            ex.printStackTrace();
+                        }
+                        return null;
+                    }
+                };
+                error.textProperty().bind(task.messageProperty());
+
+                task.setOnSucceeded(e -> {
+                    error.textProperty().unbind();
+                    error.setText(msg);
+                });
+
+                error.textProperty().bind(task.messageProperty());
+
+                // java 8 construct, replace with java 7 code if using java 7.
+                task.setOnSucceeded(e -> {
+                    error.textProperty().unbind();
+                    // this message will be seen.
+                    error.setText(msg);
+                });
+
+
+                Thread thread = new Thread(task);
+                thread.setDaemon(true);
+                thread.start();
+
         } );
         Button goBack = new Button("Go back to menu");
         goBack.setOnAction(event ->{
@@ -188,45 +221,90 @@ public class Main extends Application {
         });
         VBox layout = new VBox(20);
         layout.getChildren().addAll(nameLabel, nameInput, make, goBack, error);
-        scene1 = new Scene(layout, 800, 600);
-
-    }
-    private void create(String n)     {
-
-        msg = "wait for DB to create";
-        Task <Void> task = new Task<Void>() {
-            @Override public Void call() throws InterruptedException {
-                updateMessage(msg);
-                try {
-                    msg = dl.createDB(n);
-                } catch (Exception ex) {
-                    msg = "can't create";
-                    ex.printStackTrace();
-                }
-                return null;
-            }
-        };
-
-        error.textProperty().bind(task.messageProperty());
-
-        task.setOnSucceeded(e -> {
-            error.textProperty().unbind();
-            // this message will be seen.
-            error.setText(msg);
-        });
-
-        Thread thread = new Thread(task);
-        thread.setDaemon(true);
-        thread.start();
+        scene1 = new Scene(layout, 800, 700);
 
     }
 
 
     private void make3(){
+        Label error = new Label("");
+        Label nameLabel = new Label("Table name:");
+        GridPane.setConstraints(nameLabel, 0, 0);
+
+        TextField nameInput = new TextField("pilot");
+        GridPane.setConstraints(nameInput, 1, 0);
+
+        Button make = new Button("ok");
+        make.setOnAction(event -> {
+
+                String n = nameInput.getText();
+                msg = "wait for DB to create";
+                Task <Void> task = new Task<Void>() {
+                    @Override public Void call() throws InterruptedException {
+                        updateMessage(msg);
+                        try {
+                            dl.clearTable(n);
+                            msg = "Table "+n+" is cleared";
+
+                        } catch (Exception ex) {
+                            msg = "can't clear";
+
+                            ex.printStackTrace();
+                        }
+                        return null;
+                    }
+                };
+                error.textProperty().bind(task.messageProperty());
+
+                task.setOnSucceeded(e -> {
+                    error.textProperty().unbind();
+                    error.setText(msg);
+                });
+
+                error.textProperty().bind(task.messageProperty());
+
+                // java 8 construct, replace with java 7 code if using java 7.
+                task.setOnSucceeded(e -> {
+                    error.textProperty().unbind();
+                    // this message will be seen.
+                    error.setText(msg);
+                });
+                Thread thread = new Thread(task);
+                thread.setDaemon(true);
+                thread.start();
+        } );
+        Button goBack = new Button("Go back to menu");
+        goBack.setOnAction(event ->{
+            error.setText("");
+            window.setScene(sceneMain);
+        } );
+        VBox layout = new VBox(20);
+        layout.getChildren().addAll(nameLabel, nameInput, make, goBack, error);
+        scene3 = new Scene(layout, 800, 600);
 
     }
 
     private void make4(){
+        Label error = new Label("");
+        Label nameLabel = new Label("Table name:");
+        GridPane.setConstraints(nameLabel, 0, 0);
+
+        TextField nameInput = new TextField("pilot");
+        GridPane.setConstraints(nameInput, 1, 0);
+
+        Button make = new Button("ok");
+        make.setOnAction(event -> {
+            InsertBox.display(nameInput.getText(), dl, sceneMain);
+            window.close();
+        });
+        Button goBack = new Button("Cancel");
+        goBack.setOnAction(event ->{
+            error.setText("");
+            window.setScene(sceneMain);
+        } );
+        VBox layout = new VBox(20);
+        layout.getChildren().addAll(nameLabel, nameInput, make, goBack, error);
+        scene4 = new Scene(layout, 800, 600);
 
     }
 
@@ -244,7 +322,6 @@ public class Main extends Application {
 
     boolean connected;
     static DatabaseLogic dl;
-    Label error;
     String msg;
     Stage window;
     Scene sceneConnect, sceneMain, scene1, scene3, scene4, scene5, scene6, scene7;
